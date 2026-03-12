@@ -141,43 +141,127 @@ Benefits of Delta Lake:
 
 ## Data Ingestion (Azure Data Factory)
 
-The ingestion pipeline is built using **Azure Data Factory (ADF)** and is designed to dynamically pull NYC Green Taxi trip data for an entire year.
+The data ingestion layer of this project is implemented using **Azure Data Factory (ADF)** to automatically extract NYC Green Taxi trip data from a public HTTP source and load it into **Azure Data Lake Storage Gen2 (Bronze Layer)**.
 
-The pipeline uses:
+The pipeline was initially designed to ingest a **single month's dataset**, but it was later enhanced using **dynamic parameterization and control flow activities** to ingest an entire year's dataset automatically.
 
-- **HTTP Linked Service** as the source (NYC Taxi dataset website)
-- **Azure Data Lake Storage Gen2** as the destination
-- **Parameterized datasets**
-- **ForEach activity for dynamic iteration**
+---
 
-The pipeline dynamically processes **12 months of taxi data** using the following logic:
+## Linked Services
 
-1. A **ForEach activity** iterates through months using the expression:
+Two linked services were created in Azure Data Factory:
 
-@range(1,12)
+• **HTTP Linked Service** – connects to the NYC Taxi public dataset website  
+• **Azure Data Lake Storage Gen2 Linked Service** – used as the destination storage  
 
-2. A pipeline parameter called **p_month** dynamically updates the dataset URL.
+These linked services enable the pipeline to securely extract data from the public dataset and load it into the Data Lake.
 
-3. Based on the month value, the pipeline constructs the correct dataset file name.
+---
+
+## Parameterized Dataset
+
+To make the pipeline reusable, a parameter called **p_month** was created.
+
+This parameter dynamically updates the dataset URL for different months.
 
 Example dataset naming pattern:
 
 green_tripdata_2025_01.parquet  
 green_tripdata_2025_02.parquet  
+green_tripdata_2025_03.parquet  
 ...  
-green_tripdata_2025_12.parquet
+green_tripdata_2025_12.parquet  
 
-4. Each iteration triggers a **Copy Activity** that downloads the dataset and stores it in the **Bronze layer of Azure Data Lake Storage**.
+This allows the pipeline to dynamically pull datasets for multiple months.
 
-Pipeline flow:
+---
+
+## ForEach Activity
+
+A **ForEach activity** was implemented to iterate through all months of the year.
+
+Expression used:
+
+@range(1,12)
+
+This generates a list of numbers from **1 to 12**, representing all months.
+
+Each iteration processes a specific month's dataset automatically.
+
+---
+
+## Handling Dataset Naming Format (If Condition)
+
+The NYC Taxi dataset uses **two different naming conventions** for months.
+
+Months **January – September** use a leading zero:
+
+green_tripdata_2025_01.parquet  
+green_tripdata_2025_02.parquet  
+...  
+green_tripdata_2025_09.parquet  
+
+Months **October – December** do not require a leading zero:
+
+green_tripdata_2025_10.parquet  
+green_tripdata_2025_11.parquet  
+green_tripdata_2025_12.parquet  
+
+To handle this difference, an **If Condition activity** was implemented.
+
+Expression used:
+
+@greater(@item(),9)
+
+Logic:
+
+• If **month > 9** → dataset format is **10–12**  
+• If **month ≤ 9** → dataset format is **01–09**
+
+This ensures the pipeline dynamically generates the correct dataset name.
+
+---
+
+## Copy Activity
+
+Inside the **ForEach loop**, a **Copy Activity** is triggered.
+
+The Copy Activity performs the following steps:
+
+1. Reads Parquet files from the **HTTP source**
+2. Dynamically builds the dataset path using the **month parameter**
+3. Loads the dataset into the **Bronze layer in Azure Data Lake Storage Gen2**
+
+Example destination path:
+
+bronze/trips2025data/
+
+---
+
+## Final Pipeline Workflow
 
 ForEach (Months 1–12)  
+↓  
+If Condition (Handle dataset naming format)  
 ↓  
 Copy Activity  
 ↓  
 Load raw data into Bronze Layer
 
-This approach eliminates manual ingestion and allows the pipeline to **automatically ingest an entire year of data in a scalable and reusable way**.
+---
+
+## Result
+
+The pipeline dynamically ingests **12 months of NYC Green Taxi data** from the public source into the Bronze layer.
+
+Key advantages of this approach:
+
+• Automated ingestion pipeline  
+• Dynamic parameterization for scalability  
+• Proper handling of dataset naming formats  
+• No manual ingestion required  
+
+This design simulates a **real-world batch ingestion pipeline used in modern data engineering architectures**..
 
 
 # ⚙️ Data Processing (Azure Databricks)
