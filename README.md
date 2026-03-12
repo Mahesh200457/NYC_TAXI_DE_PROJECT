@@ -18,6 +18,11 @@ This project simulates a **real-world batch data pipeline used in Lakehouse arch
 
 # 🏗️ Architecture
 
+
+
+
+![Architecture Diagram](Architecture.png)
+
 The project follows a **Lakehouse architecture with Medallion layers**.
 
 Source (NYC Taxi Dataset)  
